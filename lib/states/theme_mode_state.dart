@@ -1,0 +1,51 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive/hive.dart';
+import 'package:start_kit/const/strings.dart';
+import 'package:start_kit/data/enums/color_palette_type.dart';
+
+final AutoDisposeChangeNotifierProvider<ThemeModeState> themeProvider =
+    ChangeNotifierProvider.autoDispose(
+        (AutoDisposeChangeNotifierProviderRef<ThemeModeState> ref) {
+  return ThemeModeState();
+});
+
+class ThemeModeState extends ChangeNotifier {
+  ThemeModeState() {
+    final String mode = Hive.box(hivePrefBox)
+        .get('themeMode', defaultValue: ThemeMode.light.toString()) as String;
+    switch (mode) {
+      case 'ThemeMode.dark':
+        themeMode = ThemeMode.dark;
+        break;
+      case 'ThemeMode.light':
+        themeMode = ThemeMode.light;
+        break;
+      case 'ThemeMode.system':
+        themeMode = ThemeMode.system;
+        break;
+    }
+
+    final ColorPaletteType colorPalette = Hive.box(hivePrefBox)
+        .get('colorPaletteType', defaultValue: ColorPaletteType.yellow);
+    colorPaletteType = colorPalette;
+  }
+
+  late ThemeMode themeMode;
+  late ColorPaletteType colorPaletteType;
+
+  get currentThemeMode => themeMode;
+  get currentColorPaletteType => colorPaletteType;
+
+  void setThemeMode(ThemeMode mode) {
+    themeMode = mode;
+    Hive.box(hivePrefBox).put('themeMode', themeMode.toString());
+    notifyListeners();
+  }
+
+  void setColorPaletteType(ColorPaletteType type) {
+    colorPaletteType = type;
+    Hive.box(hivePrefBox).put('colorPaletteType', type);
+    notifyListeners();
+  }
+}

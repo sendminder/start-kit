@@ -1,0 +1,514 @@
+import 'dart:io';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:start_kit/data/enums/color_palette_type.dart';
+import 'package:start_kit/states/theme_mode_state.dart';
+import 'package:start_kit/states/push_notification_state.dart';
+import 'package:hive/hive.dart';
+import 'package:start_kit/const/strings.dart';
+import 'package:start_kit/states/font_state.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:get_it/get_it.dart';
+import 'package:start_kit/service/local_push_service.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+// ignore: must_be_immutable
+class SettingsScreen extends ConsumerWidget {
+  SettingsScreen({super.key}) {
+    version = Hive.box(hivePrefBox).get('version', defaultValue: '') as String;
+  }
+  late String version;
+  final localPushService = GetIt.I<LocalPushService>();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    PushNotificationState pushEnable = ref.watch(pushNotificationProvider);
+    ThemeModeState themeMode = ref.watch(themeProvider);
+    const divider = Divider(
+      height: 3,
+      thickness: 0.2,
+      indent: 5,
+      endIndent: 5,
+      color: Colors.grey,
+    );
+    var selectedLanguageName = context.locale.toString();
+    const normalStyle = TextStyle(fontSize: 16);
+    const smallStyle = TextStyle(fontSize: 14);
+    const boldStyle = TextStyle(fontSize: 16, fontWeight: FontWeight.bold);
+    var primaryColorStyle = TextStyle(
+      fontSize: 15,
+      color: Theme.of(context).colorScheme.primary,
+    );
+    final font = ref.watch(fontProvider);
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.only(left: 8, right: 8, bottom: 10),
+          children: <Widget>[
+            const SizedBox(height: 15),
+            ListTile(
+              title: Text(
+                'notifications'.tr(),
+                style: boldStyle,
+              ),
+            ),
+            SwitchListTile(
+              title: Text(
+                'push_setting_title'.tr(),
+                style: normalStyle,
+              ),
+              subtitle: Text(
+                'push_setting_subtitle'.tr(),
+                style: smallStyle,
+              ),
+              value: pushEnable.pushNotificationEnable!,
+              onChanged: (bool value) async {
+                if (value) {
+                  var hasPermission =
+                      await localPushService.requestPermissions();
+                  if (hasPermission!) {
+                    pushEnable.setPushNotificationEnable(value);
+                  } else {
+                    openAppSettings();
+                  }
+                } else {
+                  pushEnable.setPushNotificationEnable(value);
+                }
+              },
+            ),
+            divider,
+            ListTile(
+              title: Text(
+                'appearance'.tr(),
+                style: boldStyle,
+              ),
+            ),
+            SwitchListTile(
+              title: Text(
+                'dark_mode_title'.tr(),
+                style: normalStyle,
+              ),
+              subtitle: Text(
+                'dark_mode_content'.tr(),
+                style: smallStyle,
+              ),
+              value: themeMode.currentThemeMode == ThemeMode.dark,
+              onChanged: (bool value) {
+                if (value) {
+                  themeMode.setThemeMode(ThemeMode.dark);
+                } else {
+                  themeMode.setThemeMode(ThemeMode.light);
+                }
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ListTile(
+                trailing: Text(
+                  themeMode.colorPaletteType.toStringValue().tr(),
+                  style: primaryColorStyle,
+                  textAlign: TextAlign.end,
+                ),
+                title: Text(
+                  'theme_title'.tr(),
+                  style: normalStyle,
+                ),
+                subtitle: Text(
+                  'theme_subtitle'.tr(),
+                  style: smallStyle,
+                ),
+                onTap: () {
+                  _showThemePicker(context, ref);
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ListTile(
+                trailing: Text(
+                  font.font,
+                  style: primaryColorStyle,
+                  textAlign: TextAlign.end,
+                ),
+                title: Text(
+                  'font_title'.tr(),
+                  style: normalStyle,
+                ),
+                subtitle: Text(
+                  'font_subtitle'.tr(),
+                  style: smallStyle,
+                ),
+                onTap: () {
+                  _showFontPicker(context, ref);
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ListTile(
+                trailing: Text(
+                  selectedLanguageName.tr(),
+                  style: primaryColorStyle,
+                  textAlign: TextAlign.end,
+                ),
+                title: Text(
+                  'language_title'.tr(),
+                  style: normalStyle,
+                ),
+                subtitle: Text(
+                  'language_content'.tr(),
+                  style: smallStyle,
+                ),
+                onTap: () {
+                  _showLanguagePicker(context, ref);
+                },
+              ),
+            ),
+            divider,
+            ListTile(
+              title: Text(
+                'support'.tr(),
+                style: boldStyle,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ListTile(
+                trailing: Icon(
+                  FluentIcons.mail_add_24_regular,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: Text(
+                  'send_feedback'.tr(),
+                  style: normalStyle,
+                ),
+                subtitle: Text(
+                  'send_feedback_subtitle'.tr(),
+                  style: smallStyle,
+                ),
+                onTap: () async {
+                  final Uri emailLaunchUri = Uri(
+                    scheme: 'mailto',
+                    path: 'email'.tr(),
+                    queryParameters: {
+                      'subject': 'feedback_subject'.tr(),
+                      'body': 'App Version :$version'
+                    },
+                  );
+                  if (await canLaunchUrl(emailLaunchUri)) {
+                    await launchUrl(emailLaunchUri);
+                  } else {
+                    throw 'Could not launch $emailLaunchUri';
+                  }
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Platform.isIOS
+                  ? ListTile(
+                      trailing: Icon(
+                        FluentIcons.star_24_filled,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      title: Text(
+                        'sumit_review'.tr(),
+                        style: normalStyle,
+                      ),
+                      subtitle: Text(
+                        'sumit_review_subtitle'.tr(),
+                        style: smallStyle,
+                      ),
+                      onTap: () async {
+                        final Uri reviewLaunchUri = Uri(
+                          scheme: 'https',
+                          host: 'apps.apple.com',
+                          path: '/app/id6504724690',
+                          queryParameters: {'action': 'write-review'},
+                        );
+                        if (await canLaunchUrl(reviewLaunchUri)) {
+                          await launchUrl(reviewLaunchUri);
+                        } else {
+                          throw 'Could not launch $reviewLaunchUri';
+                        }
+                      },
+                    )
+                  : const SizedBox.shrink(),
+            ),
+            // Padding(
+            //   padding: const EdgeInsets.only(right: 8),
+            //   child: ListTile(
+            //     trailing: Icon(
+            //       FluentIcons.drink_coffee_24_regular,
+            //       color: Theme.of(context).colorScheme.primary,
+            //     ),
+            //     title: Text(
+            //       'support_developer'.tr(),
+            //       style: normalStyle,
+            //     ),
+            //     subtitle: Text(
+            //       'support_developer_subtitle'.tr(),
+            //       style: smallStyle,
+            //     ),
+            //     onTap: () {
+            //       _showLanguagePicker(context, ref);
+            //     },
+            //   ),
+            // ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ListTile(
+                trailing: Text(
+                  version,
+                  style: primaryColorStyle,
+                  textAlign: TextAlign.end,
+                ),
+                title: Text(
+                  'version'.tr(),
+                  style: normalStyle,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLanguagePicker(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return SimpleDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          title: Text('select_language'.tr()),
+          children: <Widget>[
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context);
+                context.setLocale(const Locale('en'));
+              },
+              child: Text('en'.tr()),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context);
+                context.setLocale(const Locale('ko'));
+              },
+              child: Text('ko'.tr()),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showFontPicker(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return SimpleDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          title: Text('select_font'.tr()),
+          children: <Widget>[
+            SimpleDialogOption(
+              onPressed: () {
+                ref.read(fontProvider.notifier).setFont('System');
+                Navigator.pop(context);
+              },
+              child: Text(
+                'system_example'.tr(),
+                style: const TextStyle(
+                  fontFamily: '',
+                  fontSize: 16,
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                ref.read(fontProvider.notifier).setFont('NotoSans');
+                Navigator.pop(context);
+              },
+              child: Text(
+                'notosans_example'.tr(),
+                style: const TextStyle(
+                  fontFamily: 'NotoSans',
+                  fontSize: 15,
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                ref.read(fontProvider.notifier).setFont('SUITE');
+                Navigator.pop(context);
+              },
+              child: Text(
+                'suite_example'.tr(),
+                style: const TextStyle(
+                  fontFamily: 'SUITE',
+                  fontSize: 16,
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                ref.read(fontProvider.notifier).setFont('Nunito');
+                Navigator.pop(context);
+              },
+              child: Text(
+                'nunito_example'.tr(),
+                style: const TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 16,
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                ref.read(fontProvider.notifier).setFont('CoockieRun');
+                Navigator.pop(context);
+              },
+              child: Text(
+                'cookierun_example'.tr(),
+                style: const TextStyle(
+                  fontFamily: 'CoockieRun',
+                  fontSize: 15,
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showThemePicker(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        const yello = Color(0xFFFFB74C);
+        final yellos = [
+          yello,
+          yello.withAlpha(150),
+          yello.withAlpha(30),
+        ];
+
+        const purple = Color(0xFF6366F1);
+        final purples = [
+          purple,
+          purple.withAlpha(150),
+          purple.withAlpha(30),
+        ];
+
+        const green = Color(0xFF28B883);
+        final greens = [
+          green,
+          green.withAlpha(150),
+          green.withAlpha(30),
+        ];
+
+        return SimpleDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          title: Text('select_theme'.tr()),
+          children: <Widget>[
+            SimpleDialogOption(
+              onPressed: () {
+                ref
+                    .read(themeProvider.notifier)
+                    .setColorPaletteType(ColorPaletteType.yellow);
+                Navigator.pop(context);
+              },
+              child: _buildColorOption(context, 'yellow'.tr(), yellos),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                ref
+                    .read(themeProvider.notifier)
+                    .setColorPaletteType(ColorPaletteType.purple);
+                Navigator.pop(context);
+              },
+              child: _buildColorOption(context, 'purple'.tr(), purples),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                ref
+                    .read(themeProvider.notifier)
+                    .setColorPaletteType(ColorPaletteType.green);
+                Navigator.pop(context);
+              },
+              child: _buildColorOption(context, 'green'.tr(), greens),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildColorOption(
+      BuildContext context, String text, List<Color> colors) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey), // 회색 테두리
+            borderRadius: BorderRadius.circular(9.0), // 테두리 둥글기 (선택 사항)
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              Container(
+                width: 60,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: colors[0],
+                  shape: BoxShape.rectangle,
+                  borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(8.0),
+                      bottomLeft: Radius.circular(8.0)),
+                ),
+              ),
+              Container(
+                width: 60,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: colors[1],
+                  shape: BoxShape.rectangle,
+                ),
+              ),
+              Container(
+                width: 60,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: colors[2],
+                  shape: BoxShape.rectangle,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(8.0),
+                    bottomRight: Radius.circular(8.0),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 20),
+        Text(
+          text,
+          style: TextStyle(
+            color: colors[0],
+            fontSize: 15,
+          ),
+        ),
+      ],
+    );
+  }
+}
