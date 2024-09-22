@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
-import 'package:toddle_toddle/const/strings.dart';
+import 'package:start_kit/const/strings.dart';
 import 'package:get_it/get_it.dart';
-import 'package:toddle_toddle/service/local_push_service.dart';
+import 'package:start_kit/service/local_push_service.dart';
 
 final AutoDisposeChangeNotifierProvider<PushNotificationState>
     pushNotificationProvider = ChangeNotifierProvider.autoDispose(

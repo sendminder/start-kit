@@ -1,16 +1,19 @@
 # start_kit
 
-A new Flutter project.
+Flutter skeleton project.
 
-## Getting Started
+## build
 
-This project is a starting point for a Flutter application.
+### build hive model 
+`flutter packages pub run build_runner build  --delete-conflicting-outputs`
 
-A few resources to get you started if this is your first Flutter project:
+### build app icon
+`flutter pub run flutter_launcher_icons:main`
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### create splash image
+`flutter pub run flutter_native_splash:create`
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### android build
+use key.properties, key.jks
+`flutter build appbundle`
+check `./build/app/outputs/bundle/release/app-release.aab``
